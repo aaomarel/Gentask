@@ -30,8 +30,6 @@ struct TaskRowView: View {
                     Text(task.title)
                         .strikethrough(task.isCompleted)
                         .foregroundStyle(task.isCompleted ? .secondary : colorForDeadline(task.deadline))
-                        // This prevents the system from treating the text as selectable, which helps
-                        // in some cases but is not the full solution on its own.
                         .textSelection(.disabled)
                 }
 
@@ -81,9 +79,7 @@ struct TaskRowView: View {
                 }
             }
         }
-        // FIXED: Add this modifier to explicitly control the cursor's appearance.
-        // When the pointer enters the frame of this view, it's forced to be an arrow.
-        // When it leaves, the cursor is restored. This overrides the I-beam from the TextField below.
+        // Add this modifier to explicitly control the cursor's appearance.
         .onHover { isHovering in
             if isHovering {
                 NSCursor.arrow.push()

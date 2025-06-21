@@ -48,7 +48,7 @@ struct TaskListView: View {
         }
     }
     
-    // ADDED: Helper to get the app version and build number for display.
+    // Helper to get the app version and build number for display.
     private var appVersion: String {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1"
@@ -108,7 +108,7 @@ struct TaskListView: View {
                     }
                 }
 
-            // --- UPDATED FOOTER SECTION ---
+            // --- FOOTER SECTION ---
             VStack(spacing: 8) {
                 HStack {
                     Toggle(isOn: $notificationsEnabled) {
@@ -140,7 +140,7 @@ struct TaskListView: View {
                     .help("Quit Gentask")
                 }
                 
-                // ADDED: App version and feedback link for beta testing.
+                // App version and feedback link for beta testing.
                 HStack {
                     Text(appVersion)
                         .foregroundStyle(.secondary)
@@ -153,7 +153,7 @@ struct TaskListView: View {
             .font(.system(size: 11)) // Adjusted font size for footer
             .padding(.horizontal)
             .padding(.vertical, 8)
-            // --- END UPDATED FOOTER ---
+            // --- END FOOTER ---
 
         }
         .frame(width: 280, height: 350)

@@ -32,7 +32,7 @@ enum TaskPriority: String, CaseIterable, Codable, Identifiable {
 }
 
 struct Task: Identifiable, Codable, Hashable {
-    var id = UUID() // Use let for a truly constant ID
+    var id = UUID() 
     var title: String
     var isCompleted: Bool
     var deadline: Date? = nil
@@ -40,6 +40,6 @@ struct Task: Identifiable, Codable, Hashable {
     var notes: String? = nil
     var subtasks: [Task] = []
     
-    // CORRECTED: Make creationDate optional to handle loading old data gracefully.
+    // Make creationDate optional to handle loading old data gracefully.
     var creationDate: Date?
 }

@@ -57,8 +57,6 @@ class TaskStore: ObservableObject {
             return newTaskList
         }
 
-        // Call the recursive helper and assign its result back to the main tasks array.
-        // This creates a single, clean update for SwiftUI.
         tasks = removing(id: taskId, from: tasks)
     }
 

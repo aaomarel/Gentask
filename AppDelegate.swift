@@ -7,10 +7,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     var popover = NSPopover()
     var taskStore = TaskStore()
     var hotkeyEventMonitor: Any?
-
+    private var updaterController: UpdaterController?
+    
     let taskReminderCategoryId = "TASK_REMINDER_CATEGORY"
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        updaterController = UpdaterController()
         configureUserNotifications()
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem.button {
@@ -19,12 +21,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             button.target = self
         }
 
-        popover.contentSize = NSSize(width: 280, height: 350)
         popover.behavior = .transient
         updatePopoverContent()
 
         registerHotkey()
-        showWelcomeMessageIfNeeded() // New welcome alert function
+        showWelcomeMessageIfNeeded()
     }
     
     func registerHotkey() {
@@ -61,11 +62,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         let center = UNUserNotificationCenter.current()
         center.delegate = self
 
-        // Define custom actions for notifications
         let completeAction = UNNotificationAction(identifier: "COMPLETE_ACTION", title: "Mark as Complete", options: [])
         let snoozeAction = UNNotificationAction(identifier: "SNOOZE_ACTION", title: "Snooze", options: [])
 
-        // Create a category for task reminders and add the actions
         let category = UNNotificationCategory(
             identifier: taskReminderCategoryId,
             actions: [completeAction, snoozeAction],
@@ -74,7 +73,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         )
         center.setNotificationCategories([category])
 
-        // Request authorization from the user
         center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
             if let error = error {
                 print("❌ Failed to request notification authorization: \(error.localizedDescription)")

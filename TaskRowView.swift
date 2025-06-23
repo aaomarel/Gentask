@@ -68,6 +68,9 @@ struct TaskRowView: View {
                 isEditingFieldFocused = true
             }
         }
+        .onChange(of: task) { oldValue, newValue in
+            taskStore.scheduleNotification(for: newValue)
+        }
         .contextMenu {
             Button("Edit Task") {
                 taskStore.editingTaskId = task.id
@@ -79,7 +82,6 @@ struct TaskRowView: View {
                 }
             }
         }
-        // Add this modifier to explicitly control the cursor's appearance.
         .onHover { isHovering in
             if isHovering {
                 NSCursor.arrow.push()
@@ -102,7 +104,6 @@ struct TaskRowView: View {
     }
 }
 
-// Custom style to hide the arrow from the DisclosureGroup
 struct EmptyDisclosureGroupStyle: DisclosureGroupStyle {
     func makeBody(configuration: Configuration) -> some View {
         VStack(alignment: .leading) {
@@ -114,7 +115,6 @@ struct EmptyDisclosureGroupStyle: DisclosureGroupStyle {
     }
 }
 
-// Helper function to determine the color of a task based on its deadline
 func colorForDeadline(_ deadline: Date?) -> Color {
     guard let deadline = deadline else {
         return .primary

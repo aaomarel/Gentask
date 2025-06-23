@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import UserNotifications
 
 class TaskStore: ObservableObject {
     @Published var tasks: [Task] = [] {
@@ -15,6 +16,8 @@ class TaskStore: ObservableObject {
     init() {
         loadTasks()
     }
+    
+    // MARK: - Persistence
     
     private func saveTasks() {
         do {
@@ -34,29 +37,30 @@ class TaskStore: ObservableObject {
         }
     }
     
+    // MARK: - Task Management
+    
     func addTask(title: String) {
+        // let newTask = Task(title: title, isCompleted: false, creationDate: Date())
         let newTask = Task(title: title, isCompleted: false)
         tasks.append(newTask)
         editingTaskId = newTask.id
+        
+        // Schedule a notification for the new task if it has a deadline.
+        scheduleNotification(for: newTask)
     }
 
-    // Atomic implementation prevents race conditions and crashes.
     func deleteTask(withId taskId: UUID) {
-
         func removing(id: UUID, from taskList: [Task]) -> [Task] {
             var newTaskList = [Task]()
             for var task in taskList {
-                // If the current task is the one we want to delete, we just skip it.
                 if task.id == id {
                     continue
                 }
-                // For every task we keep, we must also run this function on its subtasks.
                 task.subtasks = removing(id: id, from: task.subtasks)
                 newTaskList.append(task)
             }
             return newTaskList
         }
-
         tasks = removing(id: taskId, from: tasks)
     }
 
@@ -69,6 +73,10 @@ class TaskStore: ObservableObject {
                 }
             }
             setCompletionRecursively(for: &taskToUpdate, status: isComplete)
+            
+            // After updating completion, reschedule the notification.
+            // This will remove the notification if the task is now complete.
+            scheduleNotification(for: taskToUpdate)
         }
     }
 
@@ -91,6 +99,51 @@ class TaskStore: ObservableObject {
         
         if foundAndMutated {
             objectWillChange.send()
+        }
+    }
+    
+    // MARK: - Notification Logic
+    
+    func scheduleNotification(for task: Task) {
+        let center = UNUserNotificationCenter.current()
+        
+        center.removePendingNotificationRequests(withIdentifiers: [task.id.uuidString])
+        
+        let notificationsEnabled = UserDefaults.standard.bool(forKey: "notificationsEnabled")
+        var leadTime = UserDefaults.standard.double(forKey: "notificationLeadTime")
+        
+        guard
+            notificationsEnabled,
+            !task.isCompleted,
+            let deadline = task.deadline
+        else { return }
+        
+        if leadTime == -1.0 {
+            // This default can be replaced by reading another @AppStorage value for custom minutes.
+            leadTime = 15 * 60
+        }
+
+        let fireDate = deadline.addingTimeInterval(-leadTime)
+        
+        guard fireDate > Date() else { return }
+
+        let content = UNMutableNotificationContent()
+        content.title = "Upcoming Task"
+        content.body = "“\(task.title)” is due soon."
+        content.sound = .default
+        
+        if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
+            content.categoryIdentifier = appDelegate.taskReminderCategoryId
+        }
+
+        let triggerDate = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: fireDate)
+        let trigger = UNCalendarNotificationTrigger(dateMatching: triggerDate, repeats: false)
+        let request = UNNotificationRequest(identifier: task.id.uuidString, content: content, trigger: trigger)
+
+        center.add(request) { error in
+            if let error = error {
+                print("❌ Failed to schedule notification for task '\(task.title)': \(error.localizedDescription)")
+            }
         }
     }
 }

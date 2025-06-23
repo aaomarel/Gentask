@@ -6,15 +6,19 @@ struct TaskListView: View {
     @State private var newTaskTitle: String = ""
     @FocusState private var isNewTaskFieldFocused: Bool
     
+    @State private var sortMode: SortMode = .smart
+    
+    @AppStorage("notificationLeadTime") private var notificationLeadTime: TimeInterval = 60 * 10
+    @AppStorage("notificationsEnabled") private var notificationsEnabled: Bool = true
+    @State private var customLeadTimeMinutes: String = "15"
+    
+    private let updaterController = UpdaterController()
+
     enum SortMode: String, CaseIterable, Identifiable {
         case smart, deadline, priority
         var id: String { rawValue }
         var label: String { self.rawValue.capitalized }
     }
-    @State private var sortMode: SortMode = .smart
-
-    @AppStorage("notificationLeadTime") private var notificationLeadTime: TimeInterval = 60 * 10
-    @AppStorage("notificationsEnabled") private var notificationsEnabled: Bool = true
 
     private var sortedTasks: [Task] {
         return taskStore.tasks.sorted { (taskA, taskB) -> Bool in
@@ -48,7 +52,6 @@ struct TaskListView: View {
         }
     }
     
-    // Helper to get the app version and build number for display.
     private var appVersion: String {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1"
@@ -108,7 +111,6 @@ struct TaskListView: View {
                     }
                 }
 
-            // --- FOOTER SECTION ---
             VStack(spacing: 8) {
                 HStack {
                     Toggle(isOn: $notificationsEnabled) {
@@ -120,47 +122,56 @@ struct TaskListView: View {
 
                     if notificationsEnabled {
                         Picker("Notify me before", selection: $notificationLeadTime) {
+                            Text("5 min").tag(60.0 * 5)
                             Text("10 min").tag(60.0 * 10)
                             Text("30 min").tag(60.0 * 30)
                             Text("1 hour").tag(60.0 * 60)
+                            Text("Custom").tag(-1.0)
                         }
                         .pickerStyle(.menu)
                         .labelsHidden()
+                        
+                        if notificationLeadTime == -1.0 {
+                            HStack {
+                                TextField("Minutes", text: $customLeadTimeMinutes)
+                                    .textFieldStyle(.roundedBorder)
+                                    .frame(width: 40)
+                                Text("min before")
+                            }
+                        }
                     }
 
                     Spacer()
-
-                    Button {
-                        NSApplication.shared.terminate(nil)
-                    } label: {
-                        Image(systemName: "power.circle.fill")
-                            .foregroundStyle(.red)
-                    }
-                    .buttonStyle(.plain)
-                    .help("Quit Gentask")
                 }
                 
-                // App version and feedback link for beta testing.
                 HStack {
                     Text(appVersion)
                         .foregroundStyle(.secondary)
                     
                     Spacer()
                     
+                    
                     Link("Provide Feedback", destination: URL(string: "https://forms.gle/sktPJa4GkUHk2VVv7")!)
                 }
             }
-            .font(.system(size: 11)) // Adjusted font size for footer
+            .font(.system(size: 11))
             .padding(.horizontal)
             .padding(.vertical, 8)
-            // --- END FOOTER ---
-
         }
-        .frame(width: 280, height: 350)
+        .frame(minWidth: 280, maxWidth: .infinity, minHeight: 350, maxHeight: 700)
         .onAppear {
             if taskStore.tasks.isEmpty {
                 isNewTaskFieldFocused = true
             }
+        }
+        .onChange(of: notificationsEnabled) { _, _ in
+            taskStore.tasks.forEach { taskStore.scheduleNotification(for: $0) }
+        }
+        .onChange(of: notificationLeadTime) { _, _ in
+            taskStore.tasks.forEach { taskStore.scheduleNotification(for: $0) }
+        }
+        .onChange(of: customLeadTimeMinutes) { _, _ in
+            taskStore.tasks.forEach { taskStore.scheduleNotification(for: $0) }
         }
     }
 
@@ -168,33 +179,6 @@ struct TaskListView: View {
         let trimmed = newTaskTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         taskStore.addTask(title: trimmed)
-        if let newTask = taskStore.tasks.last, notificationsEnabled {
-            scheduleNotification(for: newTask)
-        }
         newTaskTitle = ""
-    }
-
-    private func scheduleNotification(for task: Task) {
-        guard let deadline = task.deadline, !task.isCompleted else { return }
-        
-        let fireDate = deadline.addingTimeInterval(-notificationLeadTime)
-        guard fireDate > Date() else { return }
-
-        let content = UNMutableNotificationContent()
-        content.title = "Upcoming Task"
-        content.body = "“\(task.title)” is due soon."
-        content.sound = .default
-        content.categoryIdentifier = (NSApplication.shared.delegate as! AppDelegate).taskReminderCategoryId
-
-        let triggerDate = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: fireDate)
-        let trigger = UNCalendarNotificationTrigger(dateMatching: triggerDate, repeats: false)
-
-        let request = UNNotificationRequest(identifier: task.id.uuidString, content: content, trigger: trigger)
-
-        UNUserNotificationCenter.current().add(request) { error in
-            if let error = error {
-                print("❌ Failed to schedule: \(error.localizedDescription)")
-            }
-        }
     }
 }
